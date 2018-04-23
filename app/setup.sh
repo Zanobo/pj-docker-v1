@@ -20,17 +20,17 @@ export PATH="/node-v${NODE_VERSION}-linux-x64/bin:$PATH"
 npm_version=$(/app/select_npm_version.sh)
 npm -g install npm@"${npm_version}"
 
+# NPM install
+pushd programs/server
+# Pass --unsafe-perm in order to still run scripts even though we run as root.
+npm install --unsafe-perm
+
 # Install reaction-cli
 npm i -g reaction-cli
 
 # Generate plugin import files
 printf "\n[-] Running Reaction plugin loader...\n\n"
 reaction plugins load
-
-# NPM install
-pushd programs/server
-# Pass --unsafe-perm in order to still run scripts even though we run as root.
-npm install --unsafe-perm
 
 # Run custom setup.sh in programs/server if provided, as ROOT.
 if [ -x ./setup.sh ]; then
