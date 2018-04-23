@@ -32,7 +32,7 @@ RUN mkdir -p /app/bundle
 # Node is installed in a base image and npm is upgraded in the next image. So
 # it's OK for setup.sh to install both Node and npm for older versions, but not
 # for us to "cache" older Node versions.
-RUN NODE_VERSION="8.9.4" /app/install_node.sh
-RUN NODE_VERSION="8.11.1" /app/install_node.sh
+RUN NODE_VERSION="8.9.4" sudo /app/install_node.sh
+RUN NODE_VERSION="8.11.1" sudo /app/install_node.sh
 
 CMD ["/app/run.sh"]
