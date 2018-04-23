@@ -14,6 +14,7 @@ RUN apt-get update \
   wget \
   jq \
   xz-utils \
+  sudo \
  && rm -rf /var/lib/apt/lists/*
 
 ADD ./app /app
