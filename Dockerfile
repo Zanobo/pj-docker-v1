@@ -35,6 +35,10 @@ RUN mkdir -p /app/bundle
 # for us to "cache" older Node versions.
 
 RUN ["chmod", "+x", "/app/install_node.sh"]
+RUN ["chmod", "+x", "/app/run.sh"]
+RUN ["chmod", "+x", "/app/select_node_version.sh"]
+RUN ["chmod", "+x", "/app/select_npm_version.sh"]
+RUN ["chmod", "+x", "/app/setup.sh"]
 
 RUN NODE_VERSION="8.9.4" /app/install_node.sh
 RUN NODE_VERSION="8.11.1" /app/install_node.sh
