@@ -1,46 +1,56 @@
-FROM meteor/ubuntu:20160830T182201Z_0f378f5
+##############################################################################
+# meteor-dev stage - builds image for dev and used with docker-compose.yml
+##############################################################################
+FROM reactioncommerce/base:v4.0.2 as meteor-dev
 
-ENV METEOR_VERSION 1.5.5.2
-# Make sure we have xz-utils so we can untar node binary, and jq to parse
-# star.json to choose the npm version.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-  build-essential \
-  bsdtar \
-  bzip2 \
-  ca-certificates \
-  git \
-  python \
-  wget \
-  jq \
-  xz-utils \
-  sudo \
- && rm -rf /var/lib/apt/lists/*
+LABEL maintainer="Reaction Commerce <architecture@reactioncommerce.com>"
 
-ADD ./app /app
-RUN mkdir -p /app/bundle
+ENV PATH $PATH:/home/node/.meteor
 
-# Include some popular versions of Node (last updated 2018-Jun-26; see
-# docs/galaxy/base_image.md in the internal services repo for details on how to
-# collect these stats). This reduces the size of the non-base image layers and
-# speeds up app builds for apps using these versions. Other versions will still
-# work.
-#
-# We avoid including any version older than 8.9.4, because some versions of npm
-# older than 5.6.0 (included with 8.9.4) seem to hit
-# https://github.com/npm/npm/issues/16807. The symptom is that running `npm -g
-# install npm@xxx` from setup.sh would corrupt the npm installation, but only if
-# Node is installed in a base image and npm is upgraded in the next image. So
-# it's OK for setup.sh to install both Node and npm for older versions, but not
-# for us to "cache" older Node versions.
+COPY --chown=node package-lock.json $APP_SOURCE_DIR/
+COPY --chown=node package.json $APP_SOURCE_DIR/
 
-RUN ["chmod", "+x", "/app/install_node.sh"]
+# Because Docker Compose uses a named volume for node_modules and named volumes are owned
+# by root by default, we have to initially create node_modules here with correct owner.
+# Without this NPM cannot write packages into node_modules later, when running in a container.
+RUN mkdir "$APP_SOURCE_DIR/node_modules" && chown node "$APP_SOURCE_DIR/node_modules"
+
+RUN meteor npm install
+
+COPY --chown=node . $APP_SOURCE_DIR
+
+##############################################################################
+# builder stage - builds the production bundle
+##############################################################################
+FROM meteor-dev as builder
+
+RUN printf "\\n[-] Running Reaction plugin loader...\\n" \
+ && reaction plugins load
+RUN printf "\\n[-] Building Meteor application...\\n" \
+ && meteor build --server-only --architecture os.linux.x86_64 --directory "$APP_BUNDLE_DIR"
+
+WORKDIR $APP_BUNDLE_DIR/bundle/programs/server/
+
+RUN meteor npm install --production
+
+
+##############################################################################
+# final build stage - create the final production image
+##############################################################################
+FROM node:8.9.4-slim
+
+# Default environment variables
+
+# grab the dependencies and built app from the previous builder image
+COPY --chown=node --from=builder /opt/reaction/dist/bundle /app
+
+WORKDIR /app
+
+EXPOSE 3000
+
+CMD ["node", "main.js"]
+
 RUN ["chmod", "+x", "/app/run.sh"]
-RUN ["chmod", "+x", "/app/select_node_version.sh"]
-RUN ["chmod", "+x", "/app/select_npm_version.sh"]
 RUN ["chmod", "+x", "/app/setup.sh"]
-
-RUN NODE_VERSION="8.9.4" /app/install_node.sh
-RUN NODE_VERSION="8.11.1" /app/install_node.sh
 
 CMD ["/app/run.sh"]
